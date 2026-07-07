@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+
+<body>
+
+<div class="header">
+    <img src="logo.jpg">
+    <div>
+        <h1>Sparx Solver</h1>
+        <p>Assistant dashboard</p>
+    </div>
+</div>
+
+
+<section class="card">
+    <h2>API Settings</h2>
+
+    <textarea
+        id="apiKeys"
+        placeholder="Enter Gemini API Keys (one per line)"
+        rows="4"
+        style="width: 100%; box-sizing: border-box; resize: vertical; margin-bottom: 10px;"
+    ></textarea>
+
+    <button id="saveKey">
+        Save API Keys
+    </button>
+</section>
+
+
+<section class="card">
+    <h2>Bookwork</h2>
+
+    <div id="bookwork">
+        No bookwork detected yet.
+    </div>
+</section>
+
+
+<button class="start" id="start">
+    Start Automation
+</button>
+
+
+<script src="sidepanel.js"></script>
+
+</body>
+</html>
