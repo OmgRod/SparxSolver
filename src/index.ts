@@ -18,6 +18,9 @@ import { setContext } from './server.ts';
   setContext(context);
   const page = await context.newPage();
 
+  // Wait a short time to ensure the server is fully ready
+  await new Promise(r => setTimeout(r, 1000));
+
   await page.goto('http://localhost:3000');
 
   process.on('SIGINT', async () => {
