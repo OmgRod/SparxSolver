@@ -107,7 +107,7 @@ const task_done: FunctionDeclaration = {
       message: { type: Type.STRING, description: 'A final summary of what was done.' },
       memory_for_next_part: { type: Type.STRING, description: 'Important facts or answers to remember for the next part of THIS question. Leave empty if the entire question is fully finished.' },
       bookwork_code: { type: Type.STRING, description: 'The bookwork code (e.g. "34") shown on the page.' },
-      answer: { type: Type.STRING, description: 'The final answer you entered for this question. Required if this is the final part of the question.' }
+      answer: { type: Type.STRING, description: 'The final answer you entered for this question (formatted with KaTeX/LaTeX math delimiters like $x = 2$ or $\\frac{1}{2}$). Required if this is the final part of the question.' }
     }
   }
 };
@@ -156,10 +156,38 @@ const fallbackModels = [
 ];
 let currentModelIndex = 0;
 let bookworks: { code: string, answer: string }[] = [];
+let deletedBookworks: Set<string> = new Set();
 
 app.get('/bookwork', (req, res) => {
   res.json({ bookworks });
 });
+
+app.post('/bookwork', (req, res) => {
+  if (Array.isArray(req.body.bookworks)) {
+    bookworks = req.body.bookworks;
+    console.log(`[Server] 📖 Bookwork store updated via POST. Total entries: ${bookworks.length}`);
+  }
+  res.json({ bookworks });
+});
+
+app.delete('/bookwork', (req, res) => {
+  bookworks.forEach(b => deletedBookworks.add(b.code.trim().toLowerCase()));
+  bookworks = [];
+  console.log(`[Server] 📖 Bookwork store CLEARED ALL.`);
+  res.json({ status: 'cleared_all' });
+});
+
+app.delete('/bookwork/:code', (req, res) => {
+  const code = req.params.code;
+  deletedBookworks.add(code.trim().toLowerCase());
+  bookworks = bookworks.filter(b => b.code.trim().toLowerCase() !== code.trim().toLowerCase());
+  console.log(`[Server] 📖 Bookwork store CLEARED code "${code}". Remaining: ${bookworks.length}`);
+  res.json({ status: 'cleared_single', code });
+});
+
+
+
+
 
 async function startAutomation(apiKeys: string[]) {
   console.log(`[Automation] Initializing Gemini Agent with ${apiKeys.length} API keys...`);
@@ -186,9 +214,16 @@ async function startAutomation(apiKeys: string[]) {
           "You are a Sparx Maths agent. There are TWO types of screen you will encounter:",
 
           "── TYPE 1: BOOKWORK CHECK ──",
-          "Detected when the page shows a bookwork code (e.g. '4B') and asks you to select a previous answer from a list of tiles (no working required).",
-          "How to handle: 1) Call get_screenshot_and_html to see the page. 2) Read the bookwork code shown. 3) Call get_bookwork_answer(bookwork_code) to retrieve the saved answer. 4) Find the tile whose text matches the saved answer and click it with playwright_click. 5) Call task_done.",
-          "IMPORTANT: Do NOT call calculate_answer on bookwork check screens. Just look up the stored answer.",
+          "Detected when the page shows a bookwork code (e.g. '4B' or 'Bookwork check') asking 'Which of these answers did you write down for bookwork code 4B?'.",
+          "How to handle:",
+          "1) Call get_screenshot_and_html to view the screen.",
+          "2) Read the bookwork code requested (e.g. '4B' or '12').",
+          "3) Call get_bookwork_answer(bookwork_code) to retrieve the saved answer for that code.",
+          "4) Compare the retrieved answer against all interactive elements / options on the screen. Match by value, LaTeX expression, or text (e.g. '5', 'x = 2', '1/2', '3.14').",
+          "5) Click the button / option matching the saved answer using playwright_click.",
+          "6) If a 'Submit' or 'Continue' button appears, click it with playwright_click.",
+          "7) Call task_done.",
+          "IMPORTANT: Do NOT call calculate_answer on bookwork check screens. Always look up and select the stored bookwork answer.",
 
           "── TYPE 2: NORMAL QUESTION ──",
           "Detected when the page shows a new maths question to solve.",
@@ -205,7 +240,8 @@ async function startAutomation(apiKeys: string[]) {
           "Instead: read the interactiveElements list returned by playwright_click, find the dropdown option you want, and call playwright_click with its data-ai-id immediately.",
 
           "── task_done requirements ──",
-          "Always provide bookwork_code and answer when finishing a normal question, so the answer is saved for future bookwork checks."
+          "Always provide bookwork_code and answer when finishing a normal question, so the answer is saved for future bookwork checks.",
+          "FORMATTING: Format mathematical expressions in answer using KaTeX / LaTeX syntax, e.g. '$x = 2$', '$\\frac{1}{2}$', '$y = 3x + 5$', '$15.4$'. Wrap math in single dollar signs ($...$) so it renders nicely in KaTeX."
         ].join('\n')
       };
       
@@ -613,7 +649,11 @@ async function startAutomation(apiKeys: string[]) {
             const bwCode = toolCall.args.bookwork_code;
             const bwAnswer = toolCall.args.answer;
             if (bwCode && bwAnswer) {
-              const existing = bookworks.find(b => b.code === bwCode);
+              const codeLower = bwCode.trim().toLowerCase();
+              if (deletedBookworks.has(codeLower)) {
+                deletedBookworks.delete(codeLower); // Reset if re-solved newly
+              }
+              const existing = bookworks.find(b => b.code.trim().toLowerCase() === codeLower);
               if (existing) existing.answer = bwAnswer;
               else bookworks.push({ code: bwCode, answer: bwAnswer });
               console.log(`[Agent] Saved Bookwork Code ${bwCode}: ${bwAnswer}`);
