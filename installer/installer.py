@@ -38,6 +38,7 @@ SUBTEXT = "#94a3b8"
 BORDER  = "#2d2d4e"
 
 # ── Config ─────────────────────────────────────────────────────────────────────
+ROOT         = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_URL     = "https://github.com/OmgRod/SparxSolver.git"
 NODE_VERSION = "22.17.0"
 _NODE_BASE   = f"https://nodejs.org/dist/v{NODE_VERSION}"

@@ -45,11 +45,11 @@ def main():
     ]
     subprocess.run(cmd, check=True)
 
-    print("\n✅ Build complete!")
+    print("\n[+] Build complete!")
     print(f"Executable output directory: {DIST_DIR}")
     if os.path.exists(DIST_DIR):
         for f in os.listdir(DIST_DIR):
-            print(f"  → {os.path.join(DIST_DIR, f)}")
+            print(f"  -> {os.path.join(DIST_DIR, f)}")
 
 if __name__ == "__main__":
     main()
