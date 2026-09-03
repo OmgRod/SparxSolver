@@ -235,7 +235,7 @@ class InstallerWorker:
         bundled_base = getattr(sys, '_MEIPASS', ROOT)
 
         # Copy bundled package files, src, server, extension into app_dir
-        items = ["package.json", "src", "server", "extension"]
+        items = ["package.json", "browsers.json", "playwright.config.ts", "tsconfig.json", "src", "server", "extension"]
         for item in items:
             src_item = os.path.join(bundled_base, item)
             dst_item = os.path.join(self.app_dir, item)
@@ -311,8 +311,10 @@ class InstallerWorker:
         ext = os.path.join(app, "extension")
 
         dirs_to_remove = [
+            os.path.join(app, "node_modules"),
             os.path.join(app, "dist"),
             os.path.join(app, "dist_server"),
+            os.path.join(ext, "node_modules"),
             os.path.join(ext, "dist"),
         ]
 
@@ -674,32 +676,7 @@ class InstallerApp(tk.Tk):
 
     # ── Launch / Retry ─────────────────────────────────────────────────────────
     def _launch(self):
-        script_bat = os.path.join(self.install_dir, "start.bat")
-        script_sh = os.path.join(self.install_dir, "start.sh")
-
-        if IS_WIN:
-            os.startfile(script_bat)
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", "-a", "Terminal", script_sh])
-        else:
-            # Linux: Try launching in user's default terminal emulator
-            terms = [
-                ["x-terminal-emulator", "-e", f'bash "{script_sh}"'],
-                ["gnome-terminal", "--", "bash", script_sh],
-                ["konsole", "-e", "bash", script_sh],
-                ["xfce4-terminal", "-e", f'bash "{script_sh}"'],
-                ["xterm", "-e", f'bash "{script_sh}"'],
-            ]
-            launched = False
-            for term_cmd in terms:
-                if shutil.which(term_cmd[0]):
-                    subprocess.Popen(term_cmd)
-                    launched = True
-                    break
-            if not launched:
-                subprocess.Popen(["bash", script_sh])
-
-        # Self-close the GUI installer window immediately after spawning terminal session
+        self._should_run_server = True
         self.destroy()
 
     def _retry(self):
@@ -721,3 +698,17 @@ class InstallerApp(tk.Tk):
 if __name__ == "__main__":
     app = InstallerApp()
     app.mainloop()
+
+    if getattr(app, '_should_run_server', False):
+        print("\n" + "=" * 60)
+        print("  Starting SparxSolver Server...")
+        print("  Press Ctrl+C in this terminal to stop the server.")
+        print("=" * 60 + "\n", flush=True)
+
+        script_bat = os.path.join(app.install_dir, "start.bat")
+        script_sh = os.path.join(app.install_dir, "start.sh")
+
+        if IS_WIN:
+            subprocess.run([script_bat], shell=True)
+        else:
+            subprocess.run(["bash", script_sh])
