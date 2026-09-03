@@ -176,7 +176,7 @@ async function startAutomation(apiKeys: string[]) {
 
           "── TYPE 2: NORMAL QUESTION ──",
           "Detected when the page shows a new maths question to solve.",
-          "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working, and a random human-like delay range in seconds (e.g., min_human_delay_seconds='5', max_human_delay_seconds='15'). 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
+          "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working AND a random human-like delay range (min_human_delay_seconds, max_human_delay_seconds). YOU MUST WAIT FOR THE SERVER TO FINISH THE DELAY. DO NOT call any other tool (like playwright_fill or playwright_click) until the calculate_answer tool response returns successfully after the wait. 3) AFTER the calculate_answer wait, fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
           "── FILLING SLOTS (playwright_fill rules) ──",
           "The server auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",

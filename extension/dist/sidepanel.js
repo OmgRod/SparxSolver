@@ -1,5 +1,6 @@
 const apiKeysEl = document.getElementById("apiKeys");
 const save = document.getElementById("saveKey");
+const toggleKeys = document.getElementById("toggleKeys");
 
 chrome.storage.local.get(
     ["apiKeys"],
@@ -12,6 +13,14 @@ save.onclick = () => {
     chrome.storage.local.set({
         apiKeys: apiKeysEl.value
     });
+};
+
+toggleKeys.onchange = () => {
+    if (toggleKeys.checked) {
+        apiKeysEl.classList.remove("censored");
+    } else {
+        apiKeysEl.classList.add("censored");
+    }
 };
 
 const start = document.getElementById("start");
@@ -73,6 +82,30 @@ start.onclick = async () => {
     }
 };
 
+
+// Poll for status
+const statusIndicator = document.getElementById("statusIndicator");
+setInterval(async () => {
+    try {
+        const res = await fetch("http://localhost:3000/status");
+        const data = await res.json();
+        
+        statusIndicator.innerText = `Status: ${data.status.text}`;
+        statusIndicator.className = `status-${data.status.level}`;
+        
+        // Sync button state if needed (e.g. if server stopped externally)
+        if (!data.running && start.classList.contains("stop")) {
+            start.classList.replace("stop", "start");
+            start.innerText = "Start Automation";
+        } else if (data.running && start.classList.contains("start")) {
+            start.classList.replace("start", "stop");
+            start.innerText = "Stop Automation";
+        }
+    } catch (e) {
+        statusIndicator.innerText = "Status: Server Offline";
+        statusIndicator.className = "status-warn";
+    }
+}, 1000);
 
 let currentBookworkMemory = {};
 
