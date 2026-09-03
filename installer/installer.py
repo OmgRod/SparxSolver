@@ -224,21 +224,29 @@ class InstallerWorker:
         self.log("  ✓ Portable Git ready.", GREEN)
         return git_root
 
-    # ── STEP 2 — Clone repo ────────────────────────────────────────────────────
+    # ── STEP 2 — Extract bundled repo codebase ─────────────────────────────────
     def clone_repo(self, git_root):
-        self.log("Cloning SparxSolver repository…", TEXT)
-        self.set_sub(0, 0, "Cloning…")
-        git = self._git(git_root)
-        env = self._git_env(git_root)
+        self.log("Extracting SparxSolver codebase…", TEXT)
+        self.set_sub(0, 0, "Unpacking codebase…")
+        os.makedirs(self.app_dir, exist_ok=True)
 
-        if os.path.isdir(os.path.join(self.app_dir, ".git")):
-            self.log("  Repo already cloned — pulling latest…", SUBTEXT)
-            self.run([git, "pull", "--ff-only"], cwd=self.app_dir, env=env)
-        else:
-            self.run([git, "clone", REPO_URL, self.app_dir], env=env)
+        # Base path for PyInstaller bundled temp files
+        bundled_base = getattr(sys, '_MEIPASS', ROOT)
 
-        self.set_sub(100, 100, "Clone complete ✓")
-        self.log("  ✓ Repository ready.", GREEN)
+        # Copy bundled package files, src, server, extension into app_dir
+        items = ["package.json", "src", "server", "extension"]
+        for item in items:
+            src_item = os.path.join(bundled_base, item)
+            dst_item = os.path.join(self.app_dir, item)
+            if os.path.exists(src_item):
+                self.log(f"  Unpacking {item}…", SUBTEXT)
+                if os.path.isdir(src_item):
+                    shutil.copytree(src_item, dst_item, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(src_item, dst_item)
+
+        self.set_sub(100, 100, "Unpack complete ✓")
+        self.log("  ✓ Repository & codebase ready (offline bundle).", GREEN)
 
     # ── STEP 3 — Ensure Node.js ────────────────────────────────────────────────
     def ensure_node(self):
@@ -293,31 +301,21 @@ class InstallerWorker:
         self.log(f"  ✓ Portable Node.js {NODE_VERSION} ready.", GREEN)
         return node_root
 
-    # ── STEP 4 — Clean + npm install + build ─────────────────────────────────
+    # ── STEP 4 — Clean + npm install + build + Playwright Chromium install ────
     def _clean_app(self):
-        """Delete all generated/cached artefacts for a fully fresh install."""
+        """Delete generated build cache artefacts."""
         self.log("Cleaning previous build artefacts…", TEXT)
 
         app = self.app_dir
         ext = os.path.join(app, "extension")
 
-        # Directories to wipe entirely
         dirs_to_remove = [
-            os.path.join(app, "node_modules"),
             os.path.join(app, "dist"),
             os.path.join(app, "dist_server"),
-            os.path.join(app, "dist_exe"),
-            os.path.join(app, "dist_release"),
-            os.path.join(ext, "node_modules"),
             os.path.join(ext, "dist"),
         ]
-        # Files to delete
-        files_to_remove = [
-            os.path.join(app, "package-lock.json"),
-            os.path.join(ext, "package-lock.json"),
-        ]
 
-        total = len(dirs_to_remove) + len(files_to_remove)
+        total = len(dirs_to_remove)
         done  = 0
 
         for d in dirs_to_remove:
@@ -328,42 +326,40 @@ class InstallerWorker:
             done += 1
             self.set_sub(done * 100 // total, 100, "Cleaning…")
 
-        for fp in files_to_remove:
-            if os.path.isfile(fp):
-                rel = os.path.relpath(fp, app)
-                self.log(f"  Removing {rel}", SUBTEXT)
-                os.remove(fp)
-            done += 1
-            self.set_sub(done * 100 // total, 100, "Cleaning…")
-
         self.set_sub(100, 100, "Clean complete ✓")
         self.log("  ✓ Artefacts cleaned.", GREEN)
 
     def npm_install_and_build(self, node_root):
         npm = self._npm(node_root) if node_root else (shutil.which("npm") or "npm")
+        npx = os.path.join(node_root, "npx.cmd" if IS_WIN else "bin/npx") if node_root else (shutil.which("npx") or "npx")
         env = self._node_env(node_root) if node_root else None
         ext = os.path.join(self.app_dir, "extension")
 
-        # Fresh slate — remove node_modules, lock files, dist folders
         self._clean_app()
 
         self.log("Installing root dependencies (npm i)…", TEXT)
         self.set_sub(0, 100, "npm install…")
         self.run([npm, "install"], cwd=self.app_dir, env=env)
-        self.set_sub(33, 100, "Root deps done ✓")
+        self.set_sub(25, 100, "Root deps done ✓")
         self.log("  ✓ Root dependencies installed.", GREEN)
 
         self.log("Installing extension dependencies (npm i)…", TEXT)
-        self.set_sub(33, 100, "npm install (extension)…")
+        self.set_sub(25, 100, "npm install (extension)…")
         self.run([npm, "install"], cwd=ext, env=env)
-        self.set_sub(66, 100, "Extension deps done ✓")
+        self.set_sub(50, 100, "Extension deps done ✓")
         self.log("  ✓ Extension dependencies installed.", GREEN)
 
         self.log("Building extension (npm run build)…", TEXT)
-        self.set_sub(66, 100, "Building extension…")
+        self.set_sub(50, 100, "Building extension…")
         self.run([npm, "run", "build"], cwd=ext, env=env)
-        self.set_sub(100, 100, "Build complete ✓")
+        self.set_sub(75, 100, "Build complete ✓")
         self.log("  ✓ Extension built successfully.", GREEN)
+
+        self.log("Installing Playwright Chromium browser binary…", TEXT)
+        self.set_sub(75, 100, "Installing Playwright Chromium…")
+        self.run([npx, "playwright", "install", "chromium"], cwd=self.app_dir, env=env)
+        self.set_sub(100, 100, "Playwright Chromium installed ✓")
+        self.log("  ✓ Playwright Chromium browser installed.", GREEN)
 
     # ── STEP 5 — Create launcher scripts ──────────────────────────────────────
     def create_launchers(self, node_root):
@@ -384,12 +380,12 @@ class InstallerWorker:
             path_sh     = ""
 
         # ── start.bat ──
-        bat = ["@echo off", "title SparxSolver"]
+        bat = ["@echo off", "title SparxSolver Server"]
         if path_win:
             bat.append(path_win)
         bat += [
             f'cd /d "{app_abs}"',
-            "echo Starting SparxSolver...",
+            "echo Starting SparxSolver Server...",
             f"{npm_cmd_win} start",
             "pause",
         ]
@@ -404,7 +400,7 @@ class InstallerWorker:
             sh.append(path_sh)
         sh += [
             f'cd "{app_abs}"',
-            "echo 'Starting SparxSolver...'",
+            "echo 'Starting SparxSolver Server...'",
             f"{npm_cmd_sh} start",
         ]
         sh_path = os.path.join(self.install_dir, "start.sh")
@@ -677,11 +673,33 @@ class InstallerApp(tk.Tk):
 
     # ── Launch / Retry ─────────────────────────────────────────────────────────
     def _launch(self):
+        script_bat = os.path.join(self.install_dir, "start.bat")
+        script_sh = os.path.join(self.install_dir, "start.sh")
+
         if IS_WIN:
-            os.startfile(os.path.join(self.install_dir, "start.bat"))
+            os.startfile(script_bat)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-a", "Terminal", script_sh])
         else:
-            subprocess.Popen(["bash",
-                              os.path.join(self.install_dir, "start.sh")])
+            # Linux: Try launching in user's default terminal emulator
+            terms = [
+                ["x-terminal-emulator", "-e", f'bash "{script_sh}"'],
+                ["gnome-terminal", "--", "bash", script_sh],
+                ["konsole", "-e", "bash", script_sh],
+                ["xfce4-terminal", "-e", f'bash "{script_sh}"'],
+                ["xterm", "-e", f'bash "{script_sh}"'],
+            ]
+            launched = False
+            for term_cmd in terms:
+                if shutil.which(term_cmd[0]):
+                    subprocess.Popen(term_cmd)
+                    launched = True
+                    break
+            if not launched:
+                subprocess.Popen(["bash", script_sh])
+
+        # Self-close the GUI installer window immediately after spawning terminal session
+        self.destroy()
 
     def _retry(self):
         self._log.configure(state="normal")

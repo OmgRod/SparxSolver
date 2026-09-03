@@ -25,7 +25,7 @@ def main():
         print("Installing PyInstaller via pip...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller", "--break-system-packages"], check=True)
 
-    print("Building standalone executable...")
+    print("Building standalone executable with bundled codebase...")
     cmd = [
         sys.executable,
         "-m",
@@ -37,6 +37,10 @@ def main():
         "--distpath", DIST_DIR,
         "--workpath", BUILD_DIR,
         "--specpath", os.path.join(ROOT, "installer"),
+        "--add-data", f"{os.path.join(ROOT, 'package.json')}{os.pathsep}.",
+        "--add-data", f"{os.path.join(ROOT, 'src')}{os.pathsep}src",
+        "--add-data", f"{os.path.join(ROOT, 'server')}{os.pathsep}server",
+        "--add-data", f"{os.path.join(ROOT, 'extension')}{os.pathsep}extension",
         INSTALLER_SCRIPT
     ]
     subprocess.run(cmd, check=True)
