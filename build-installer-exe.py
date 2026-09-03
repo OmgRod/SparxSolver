@@ -13,6 +13,7 @@ import os
 import sys
 import subprocess
 import shutil
+import urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 INSTALLER_SCRIPT = os.path.join(ROOT, "installer", "installer.py")
@@ -25,7 +26,46 @@ def main():
         print("Installing PyInstaller via pip...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller", "--break-system-packages"], check=True)
 
-    print("Building standalone executable with bundled codebase...")
+    print("Fetching portable Node.js binary for installer packaging...")
+    bin_pack_dir = os.path.join(ROOT, "installer", "bundled_bin")
+    os.makedirs(bin_pack_dir, exist_ok=True)
+
+    # Node.js binary download helper for build platform
+    node_ver = "22.17.0"
+    plat_str = sys.platform
+    if "win32" in plat_str:
+        node_url = f"https://nodejs.org/dist/v{node_ver}/node-v{node_ver}-win-x64.zip"
+        node_zip = os.path.join(bin_pack_dir, "node.zip")
+        if not os.path.exists(os.path.join(bin_pack_dir, "node")):
+            if not os.path.exists(node_zip):
+                print(f"Downloading Node.js binary ({node_url})...")
+                urllib.request.urlretrieve(node_url, node_zip)
+            import zipfile
+            with zipfile.ZipFile(node_zip) as z:
+                z.extractall(bin_pack_dir)
+            extracted_dir = os.path.join(bin_pack_dir, f"node-v{node_ver}-win-x64")
+            target_node = os.path.join(bin_pack_dir, "node")
+            if os.path.exists(target_node): shutil.rmtree(target_node)
+            os.rename(extracted_dir, target_node)
+            if os.path.exists(node_zip): os.remove(node_zip)
+    else:
+        node_url = f"https://nodejs.org/dist/v{node_ver}/node-v{node_ver}-linux-x64.tar.gz" if "linux" in plat_str else f"https://nodejs.org/dist/v{node_ver}/node-v{node_ver}-darwin-arm64.tar.gz"
+        node_tar = os.path.join(bin_pack_dir, "node.tar.gz")
+        target_node = os.path.join(bin_pack_dir, "node")
+        if not os.path.exists(target_node):
+            if not os.path.exists(node_tar):
+                print(f"Downloading Node.js binary ({node_url})...")
+                urllib.request.urlretrieve(node_url, node_tar)
+            import tarfile
+            with tarfile.open(node_tar) as t:
+                t.extractall(bin_pack_dir)
+            extracted_name = f"node-v{node_ver}-linux-x64" if "linux" in plat_str else f"node-v{node_ver}-darwin-arm64"
+            extracted_dir = os.path.join(bin_pack_dir, extracted_name)
+            if os.path.exists(target_node): shutil.rmtree(target_node)
+            os.rename(extracted_dir, target_node)
+            if os.path.exists(node_tar): os.remove(node_tar)
+
+    print("Building standalone executable with bundled codebase and binaries...")
     cmd = [
         sys.executable,
         "-m",
@@ -43,6 +83,7 @@ def main():
         "--add-data", f"{os.path.join(ROOT, 'src')}{os.pathsep}src",
         "--add-data", f"{os.path.join(ROOT, 'server')}{os.pathsep}server",
         "--add-data", f"{os.path.join(ROOT, 'extension')}{os.pathsep}extension",
+        "--add-data", f"{bin_pack_dir}{os.pathsep}bundled_bin",
         INSTALLER_SCRIPT
     ]
     subprocess.run(cmd, check=True)

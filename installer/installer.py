@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""
-SparxSolver Installer — GUI Edition
-=====================================
-A polished Tkinter installer that:
-  1. Creates a SparxSolver folder next to this script
-  2. Downloads portable Git if git is not on PATH  →  ./bin/git/
-  3. git clone https://github.com/OmgRod/SparxSolver  →  ./app
-  4. Downloads portable Node.js if node is not on PATH  →  ./bin/node/
-  5. Runs: npm i  →  cd extension  →  npm i  →  npm run build  →  cd ..
-  6. Creates start.bat / start.sh in the SparxSolver folder
-"""
-
 import os
 import sys
 import platform
@@ -19,9 +7,6 @@ import shutil
 import threading
 import queue
 import time
-import urllib.request
-import tarfile
-import zipfile
 import tkinter as tk
 from tkinter import ttk
 
@@ -38,27 +23,7 @@ SUBTEXT = "#94a3b8"
 BORDER  = "#2d2d4e"
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-ROOT         = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPO_URL     = "https://github.com/OmgRod/SparxSolver.git"
-NODE_VERSION = "22.17.0"
-_NODE_BASE   = f"https://nodejs.org/dist/v{NODE_VERSION}"
-
-# Portable Git for Windows (MinGit minimal zip — no system install needed)
-GIT_WIN_ZIP = (
-    "https://github.com/git-for-windows/git/releases/download/"
-    "v2.46.2.windows.1/MinGit-2.46.2-64-bit.zip"
-)
-
-NODE_URLS = {
-    "windows": f"{_NODE_BASE}/node-v{NODE_VERSION}-win-x64.zip",
-    "linux":   f"{_NODE_BASE}/node-v{NODE_VERSION}-linux-x64.tar.gz",
-    "darwin":  f"{_NODE_BASE}/node-v{NODE_VERSION}-darwin-arm64.tar.gz",
-}
-NODE_DIRS = {
-    "windows": f"node-v{NODE_VERSION}-win-x64",
-    "linux":   f"node-v{NODE_VERSION}-linux-x64",
-    "darwin":  f"node-v{NODE_VERSION}-darwin-arm64",
-}
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # ── Platform helper ────────────────────────────────────────────────────────────
@@ -106,38 +71,6 @@ class InstallerWorker:
     def done(self, success=True, message=""):
         self._put(type="done", success=success, message=message)
 
-    # ── Download with live progress ────────────────────────────────────────────
-    def download(self, url: str, dest: str, label: str):
-        self.log(f"  Downloading {label}…", SUBTEXT)
-        start = time.time()
-        last_t = [0.0]
-
-        def _hook(block, block_size, total):
-            if self._cancelled:
-                raise InterruptedError("cancelled")
-            received = block * block_size
-            now = time.time()
-            if now - last_t[0] < 0.1:
-                return
-            last_t[0] = now
-            elapsed = now - start or 0.001
-            speed   = received / elapsed
-            spd_str = (f"{speed/1_048_576:.1f} MB/s"
-                       if speed > 1_048_576
-                       else f"{speed/1024:.0f} KB/s")
-            if total > 0:
-                pct = min(100, received * 100 // total)
-                mb_r = received / 1_048_576
-                mb_t = total    / 1_048_576
-                self.set_sub(pct, 100,
-                    f"{mb_r:.1f} / {mb_t:.1f} MB  •  {spd_str}")
-            else:
-                self.set_sub(0, 0, f"{received/1_048_576:.1f} MB downloaded…")
-
-        urllib.request.urlretrieve(url, dest, reporthook=_hook)
-        self.set_sub(100, 100, "Download complete ✓")
-        self.log(f"  ✓ {label} downloaded.", GREEN)
-
     # ── Run subprocess ─────────────────────────────────────────────────────────
     def run(self, cmd, cwd=None, env=None):
         display = " ".join(str(x) for x in cmd)
@@ -174,58 +107,7 @@ class InstallerWorker:
         e["npm_config_cache"] = os.path.join(node_root, ".npm-cache")
         return e
 
-    # ── Git helpers ────────────────────────────────────────────────────────────
-    def _git(self, git_root):
-        if git_root:
-            return os.path.join(git_root, "cmd", "git.exe") if IS_WIN else "git"
-        return "git"
-
-    def _git_env(self, git_root):
-        e = os.environ.copy()
-        if git_root and IS_WIN:
-            e["PATH"] = os.pathsep.join([
-                os.path.join(git_root, "cmd"),
-                os.path.join(git_root, "usr", "bin"),
-                os.path.join(git_root, "mingw64", "bin"),
-            ]) + os.pathsep + e.get("PATH", "")
-        return e
-
-    # ── STEP 1 — Ensure Git ────────────────────────────────────────────────────
-    def ensure_git(self):
-        self.log("Checking for Git…", TEXT)
-
-        if shutil.which("git"):
-            self.log("  ✓ Git found on system PATH — no download needed.", GREEN)
-            self.set_sub(100, 100, "Using system Git")
-            return None
-
-        if not IS_WIN:
-            raise RuntimeError(
-                "Git is not installed.\n"
-                "Please install it (e.g. sudo apt install git) and re-run.")
-
-        git_root = os.path.join(self.bin_dir, "git")
-        git_exe  = os.path.join(git_root, "cmd", "git.exe")
-
-        if os.path.isfile(git_exe):
-            self.log("  ✓ Portable Git already present — skipping download.", GREEN)
-            self.set_sub(100, 100, "Portable Git ready")
-            return git_root
-
-        os.makedirs(git_root, exist_ok=True)
-        archive = os.path.join(self.bin_dir, "mingit.zip")
-        self.download(GIT_WIN_ZIP, archive, "Portable Git (MinGit)")
-
-        self.log("  Extracting Git…", SUBTEXT)
-        self.set_sub(0, 0, "Extracting…")
-        with zipfile.ZipFile(archive) as z:
-            z.extractall(git_root)
-        os.remove(archive)
-        self.set_sub(100, 100, "Git extracted ✓")
-        self.log("  ✓ Portable Git ready.", GREEN)
-        return git_root
-
-    # ── STEP 2 — Extract bundled repo codebase ─────────────────────────────────
+    # ── STEP 1 — Extract bundled repo codebase ─────────────────────────────────
     def clone_repo(self, git_root):
         self.log("Extracting SparxSolver codebase…", TEXT)
         self.set_sub(0, 0, "Unpacking codebase…")
@@ -253,54 +135,40 @@ class InstallerWorker:
     def ensure_node(self):
         self.log("Checking for Node.js…", TEXT)
 
+        node_root = os.path.join(self.bin_dir, "node")
+        node_exe  = os.path.join(node_root, "node.exe" if IS_WIN else "bin/node")
+
+        if os.path.isfile(node_exe):
+            self.log("  ✓ Bundled Node.js already present.", GREEN)
+            self.set_sub(100, 100, "Bundled Node.js ready")
+            return node_root
+
+        # Unpack bundled Node.js binary package
+        bundled_base = getattr(sys, '_MEIPASS', ROOT)
+        bundled_node = os.path.join(bundled_base, "bundled_bin", "node")
+
+        if os.path.isdir(bundled_node):
+            self.log("  Unpacking bundled Node.js binary…", SUBTEXT)
+            self.set_sub(0, 0, "Unpacking Node.js…")
+            shutil.copytree(bundled_node, node_root, dirs_exist_ok=True, symlinks=True)
+
+            if not IS_WIN:
+                for name in ["node", "npm", "npx", "corepack"]:
+                    fp = os.path.join(node_root, "bin", name)
+                    if os.path.isfile(fp) or os.path.islink(fp):
+                        try: os.chmod(fp, 0o755)
+                        except Exception: pass
+
+            self.set_sub(100, 100, "Node.js unpacked ✓")
+            self.log("  ✓ Bundled Node.js ready.", GREEN)
+            return node_root
+
         if shutil.which("node"):
-            self.log("  ✓ Node.js found on system PATH — no download needed.", GREEN)
+            self.log("  ✓ Using system Node.js.", GREEN)
             self.set_sub(100, 100, "Using system Node.js")
             return None
 
-        node_root = os.path.join(self.bin_dir, "node")
-        p         = plat()
-        node_exe  = os.path.join(node_root,
-                                  "node.exe" if IS_WIN else "bin/node")
-
-        if os.path.isfile(node_exe):
-            self.log("  ✓ Portable Node.js already present — skipping.", GREEN)
-            self.set_sub(100, 100, "Portable Node.js ready")
-            return node_root
-
-        os.makedirs(self.bin_dir, exist_ok=True)
-        url     = NODE_URLS[p]
-        archive = os.path.join(self.bin_dir, url.split("/")[-1])
-        self.download(url, archive, f"Node.js {NODE_VERSION}")
-
-        self.log("  Extracting Node.js…", SUBTEXT)
-        self.set_sub(0, 0, "Extracting…")
-        tmp = os.path.join(self.bin_dir, "_node_tmp")
-        os.makedirs(tmp, exist_ok=True)
-
-        if archive.endswith(".zip"):
-            with zipfile.ZipFile(archive) as z:
-                z.extractall(tmp)
-        else:
-            with tarfile.open(archive) as t:
-                t.extractall(tmp)
-
-        inner = os.path.join(tmp, NODE_DIRS[p])
-        if os.path.isdir(node_root):
-            shutil.rmtree(node_root)
-        shutil.move(inner, node_root)
-        shutil.rmtree(tmp)
-        os.remove(archive)
-
-        if not IS_WIN:
-            for name in ["node", "npm", "npx", "corepack"]:
-                fp = os.path.join(node_root, "bin", name)
-                if os.path.isfile(fp):
-                    os.chmod(fp, 0o755)
-
-        self.set_sub(100, 100, "Node.js extracted ✓")
-        self.log(f"  ✓ Portable Node.js {NODE_VERSION} ready.", GREEN)
-        return node_root
+        raise RuntimeError("Bundled Node.js binary not found in installer package.")
 
     # ── STEP 4 — Clean + npm install + build + Playwright Chromium install ────
     def _clean_app(self):
@@ -416,24 +284,19 @@ class InstallerWorker:
 
     # ── Main entry ─────────────────────────────────────────────────────────────
     def run_all(self):
-        TOTAL = 5
+        TOTAL = 3
         try:
             os.makedirs(self.install_dir, exist_ok=True)
             os.makedirs(self.bin_dir,     exist_ok=True)
 
-            self.set_step("Step 1 / 5 — Checking Git",              1, TOTAL)
-            git_root  = self.ensure_git()
-
-            self.set_step("Step 2 / 5 — Cloning repository",        2, TOTAL)
-            self.clone_repo(git_root)
-
-            self.set_step("Step 3 / 5 — Checking Node.js",          3, TOTAL)
+            self.set_step("Step 1 / 3 — Unpacking codebase & Node.js", 1, TOTAL)
+            self.clone_repo(None)
             node_root = self.ensure_node()
 
-            self.set_step("Step 4 / 5 — Installing & building",     4, TOTAL)
+            self.set_step("Step 2 / 3 — Installing & building",      2, TOTAL)
             self.npm_install_and_build(node_root)
 
-            self.set_step("Step 5 / 5 — Creating launcher scripts", 5, TOTAL)
+            self.set_step("Step 3 / 3 — Creating launcher scripts",  3, TOTAL)
             self.create_launchers(node_root)
 
             self.done(True)
