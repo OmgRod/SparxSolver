@@ -5,6 +5,13 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <style>
+        .censored { -webkit-text-security: disc; }
+        #statusIndicator { font-size: 13px; font-weight: bold; margin-bottom: 10px; padding: 8px; border-radius: 4px; }
+        .status-info { background: #e5e7eb; color: #374151; }
+        .status-action { background: #d1fae5; color: #065f46; }
+        .status-warn { background: #fef3c7; color: #92400e; }
+    </style>
 </head>
 
 <body>
@@ -17,16 +24,22 @@
     </div>
 </div>
 
-
 <section class="card">
+    <div id="statusIndicator" class="status-info">Status: Idle</div>
+    
     <h2>API Settings</h2>
 
     <textarea
         id="apiKeys"
+        class="censored"
         placeholder="Enter Gemini API Keys (one per line)"
         rows="4"
         style="width: 100%; box-sizing: border-box; resize: vertical; margin-bottom: 10px;"
     ></textarea>
+    
+    <label>
+        <input type="checkbox" id="toggleKeys"> Show API Keys
+    </label>
 
     <button id="saveKey">
         Save API Keys
@@ -54,4 +67,4 @@
 <script src="sidepanel.js"></script>
 
 </body>
-</html>
+</html>

@@ -91,6 +91,18 @@ async function getActivePage(): Promise<Page | null> {
   return activePage || (pages.length > 0 ? pages[0] : null);
 }
 
+let currentStatus = { text: "Idle", level: "info" };
+let hasCalculatedForCurrentQuestion = false;
+
+app.get('/status', (req, res) => {
+  res.json({ running: automationRunning, status: currentStatus });
+});
+
+function updateStatus(text: string, level: string = "info") {
+  currentStatus = { text, level };
+  console.log(`[Status] ${text}`);
+}
+
 let currentModelIndex = 0;
 let bookworks: { code: string, answer: string }[] = [];
 let deletedBookworks: Set<string> = new Set();
@@ -164,7 +176,7 @@ async function startAutomation(apiKeys: string[]) {
 
           "── TYPE 2: NORMAL QUESTION ──",
           "Detected when the page shows a new maths question to solve.",
-          "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working. 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
+          "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working, and a random human-like delay range in seconds (e.g., min_human_delay_seconds='5', max_human_delay_seconds='15'). 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
           "── FILLING SLOTS (playwright_fill rules) ──",
           "The server auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",
@@ -200,7 +212,7 @@ async function startAutomation(apiKeys: string[]) {
         
         while (automationRunning && !success) {
           try {
-            console.log(`[Agent] Sending prompt to ${fallbackModels[currentModelIndex]} using Key ${currentKeyIndex + 1}/${apiKeys.length}...`);
+            updateStatus(`Querying ${fallbackModels[currentModelIndex]} (Key ${currentKeyIndex + 1}/${apiKeys.length})...`, 'info');
             response = await ai.models.generateContent({
               model: fallbackModels[currentModelIndex],
               contents: contents,
@@ -212,9 +224,9 @@ async function startAutomation(apiKeys: string[]) {
             currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
             if (currentKeyIndex === 0) {
               currentModelIndex = (currentModelIndex + 1) % fallbackModels.length;
-              console.log(`[Agent] ⚠️ Cycled through all API keys for model ${fallbackModels[currentModelIndex === 0 ? fallbackModels.length - 1 : currentModelIndex - 1]}. Switching model to ${fallbackModels[currentModelIndex]}...`);
+              updateStatus(`Cycled keys. Switching to ${fallbackModels[currentModelIndex]}...`, 'warn');
             } else {
-              console.log(`[Agent] ⚠️ Error on ${fallbackModels[currentModelIndex]} (${e.message || e}). Instantly switching to next API key ${currentKeyIndex + 1}/${apiKeys.length}...`);
+              updateStatus(`Key error. Switching to key ${currentKeyIndex + 1}/${apiKeys.length}...`, 'warn');
             }
             
             // Re-initialize AI with next key immediately
@@ -239,7 +251,7 @@ async function startAutomation(apiKeys: string[]) {
         }
 
         const toolCall = functionCalls[0];
-        console.log(`[Agent] 🤖 Gemini called tool: ${toolCall.name} with args:`, toolCall.args);
+        updateStatus(`AI Tool: ${toolCall.name}(${JSON.stringify(toolCall.args || {})})`, 'action');
         
         if (!automationRunning) {
           console.log('[Automation] Stop flag detected before executing tool. Halting immediately.');
@@ -498,7 +510,26 @@ async function startAutomation(apiKeys: string[]) {
           else if (toolCall.name === 'calculate_answer') {
             const working = toolCall.args.step_by_step_working as string;
             const final = toolCall.args.final_answer as string;
+            const minSec = Math.max(1, parseInt(toolCall.args.min_human_delay_seconds || '5', 10));
+            const maxSec = Math.max(minSec, parseInt(toolCall.args.max_human_delay_seconds || '15', 10));
+
             console.log(`[Agent] 🧮 Gemini Calculation:\nWorking: ${working}\nFinal Answer: ${final}`);
+
+            if (!hasCalculatedForCurrentQuestion) {
+              hasCalculatedForCurrentQuestion = true;
+              const delaySec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+              console.log(`[Human Delay] ⏱️ AI calculated answer. Simulating average human solving time of ${delaySec}s (Range: ${minSec}-${maxSec}s)...`);
+
+              for (let remaining = delaySec; remaining > 0; remaining--) {
+                if (!automationRunning) break;
+                updateStatus(`Simulating human thinking time... (${remaining}s remaining)`, 'info');
+                await page.waitForTimeout(1000);
+              }
+              updateStatus(`Finished thinking (${delaySec}s). Executing answer entry...`, 'action');
+            } else {
+              console.log(`[Human Delay] Delay already applied for this question — skipping additional wait.`);
+            }
+
             toolResult = { status: "Calculation saved successfully! Now proceed to enter this exact answer using the correct button IDs." };
           }
           else if (toolCall.name === 'get_bookwork_answer') {

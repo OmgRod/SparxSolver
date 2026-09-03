@@ -32,14 +32,16 @@ export const toolDeclarations = [
   },
   {
     name: 'calculate_answer',
-    description: 'Use this tool to write out your step-by-step mathematical working and determine the final answer BEFORE you start clicking any answer slots on the screen.',
+    description: 'Use this tool to write out your step-by-step mathematical working, determine the final answer, and estimate a realistic time range in seconds (min and max) that an average human student would take to solve this specific question BEFORE you fill any slots.',
     parameters: {
       type: 'OBJECT',
       properties: {
         step_by_step_working: { type: 'STRING', description: 'Your detailed mathematical working out. Double check your math!' },
-        final_answer: { type: 'STRING', description: 'The final calculated answer.' }
+        final_answer: { type: 'STRING', description: 'The final calculated answer.' },
+        min_human_delay_seconds: { type: 'INTEGER', description: 'Minimum estimated seconds an average human student would take to solve this question (e.g. 10).' },
+        max_human_delay_seconds: { type: 'INTEGER', description: 'Maximum estimated seconds an average human student would take to solve this question (e.g. 30).' }
       },
-      required: ['step_by_step_working', 'final_answer']
+      required: ['step_by_step_working', 'final_answer', 'min_human_delay_seconds', 'max_human_delay_seconds']
     }
   },
   {
@@ -95,7 +97,7 @@ export const systemInstruction = [
 
   "── TYPE 2: NORMAL QUESTION ──",
   "Detected when the page shows a new maths question to solve.",
-  "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working. 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
+  "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working AND realistic min/max estimated human solving time in seconds (e.g. min: 12, max: 25). 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
   "── FILLING SLOTS (playwright_fill rules) ──",
   "The engine auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",
