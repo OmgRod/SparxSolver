@@ -10,7 +10,7 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-# ── Colours ────────────────────────────────────────────────────────────────────
+# -- Colours --------------------------------------------------------------------
 BG      = "#0f0f1a"
 PANEL   = "#1a1a2e"
 ACCENT  = "#6c63ff"
@@ -22,11 +22,11 @@ TEXT    = "#e2e8f0"
 SUBTEXT = "#94a3b8"
 BORDER  = "#2d2d4e"
 
-# ── Config ─────────────────────────────────────────────────────────────────────
+# -- Config ---------------------------------------------------------------------
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-# ── Platform helper ────────────────────────────────────────────────────────────
+# -- Platform helper ------------------------------------------------------------
 def plat():
     s = platform.system().lower()
     if "windows" in s: return "windows"
@@ -36,7 +36,7 @@ def plat():
 IS_WIN = plat() == "windows"
 
 
-# ── Installer logic (runs in a background thread) ──────────────────────────────
+# -- Installer logic (runs in a background thread) ------------------------------
 
 class InstallerWorker:
     """
@@ -55,7 +55,7 @@ class InstallerWorker:
         self.q           = msg_queue
         self._cancelled  = False
 
-    # ── Queue helpers ──────────────────────────────────────────────────────────
+    # -- Queue helpers ----------------------------------------------------------
     def _put(self, **kw):
         self.q.put(kw)
 
@@ -71,7 +71,7 @@ class InstallerWorker:
     def done(self, success=True, message=""):
         self._put(type="done", success=success, message=message)
 
-    # ── Run subprocess ─────────────────────────────────────────────────────────
+    # -- Run subprocess ---------------------------------------------------------
     def run(self, cmd, cwd=None, env=None):
         display = " ".join(str(x) for x in cmd)
         self.log(f"  $ {display}", SUBTEXT)
@@ -92,7 +92,7 @@ class InstallerWorker:
             raise RuntimeError(
                 f"Command failed (exit {proc.returncode}): {display}")
 
-    # ── Node helpers ───────────────────────────────────────────────────────────
+    # -- Node helpers -----------------------------------------------------------
     def _node_bin_dir(self, node_root):
         return node_root if IS_WIN else os.path.join(node_root, "bin")
 
@@ -107,7 +107,7 @@ class InstallerWorker:
         e["npm_config_cache"] = os.path.join(node_root, ".npm-cache")
         return e
 
-    # ── STEP 1 — Extract bundled repo codebase ─────────────────────────────────
+    # -- STEP 1 — Extract bundled repo codebase ---------------------------------
     def clone_repo(self, git_root):
         self.log("Extracting SparxSolver codebase…", TEXT)
         self.set_sub(0, 0, "Unpacking codebase…")
@@ -131,7 +131,7 @@ class InstallerWorker:
         self.set_sub(100, 100, "Unpack complete ✓")
         self.log("  ✓ Repository & codebase ready (offline bundle).", GREEN)
 
-    # ── STEP 3 — Ensure Node.js ────────────────────────────────────────────────
+    # -- STEP 3 — Ensure Node.js ------------------------------------------------
     def ensure_node(self):
         self.log("Checking for Node.js…", TEXT)
 
@@ -170,7 +170,7 @@ class InstallerWorker:
 
         raise RuntimeError("Bundled Node.js binary not found in installer package.")
 
-    # ── STEP 4 — Clean + npm install + build + Playwright Chromium install ────
+    # -- STEP 4 — Clean + npm install + build + Playwright Chromium install ----
     def _clean_app(self):
         """Delete generated build cache artefacts."""
         self.log("Cleaning previous build artefacts…", TEXT)
@@ -232,7 +232,7 @@ class InstallerWorker:
         self.set_sub(100, 100, "Playwright Chromium installed ✓")
         self.log("  ✓ Playwright Chromium browser installed.", GREEN)
 
-    # ── STEP 5 — Create launcher scripts ──────────────────────────────────────
+    # -- STEP 5 — Create launcher scripts --------------------------------------
     def create_launchers(self, node_root):
         self.log("Creating launcher scripts…", TEXT)
         app_abs = os.path.abspath(self.app_dir)
@@ -250,7 +250,7 @@ class InstallerWorker:
             path_win    = ""
             path_sh     = ""
 
-        # ── start.bat ──
+        # -- start.bat --
         bat = ["@echo off", "title SparxSolver Server"]
         if path_win:
             bat.append(path_win)
@@ -265,7 +265,7 @@ class InstallerWorker:
             f.write("\n".join(bat) + "\n")
         self.log("  ✓ Created start.bat", GREEN)
 
-        # ── start.sh ──
+        # -- start.sh --
         sh = ["#!/usr/bin/env bash"]
         if path_sh:
             sh.append(path_sh)
@@ -282,7 +282,7 @@ class InstallerWorker:
 
         self.set_sub(100, 100, "Launchers created ✓")
 
-    # ── Main entry ─────────────────────────────────────────────────────────────
+    # -- Main entry -------------------------------------------------------------
     def run_all(self):
         TOTAL = 3
         try:
@@ -308,7 +308,7 @@ class InstallerWorker:
             self.done(False, str(exc))
 
 
-# ── Tkinter GUI ────────────────────────────────────────────────────────────────
+# -- Tkinter GUI ----------------------------------------------------------------
 
 class InstallerApp(tk.Tk):
     def __init__(self):
@@ -331,7 +331,7 @@ class InstallerApp(tk.Tk):
         self._build_ui()
         self._poll_queue()
 
-    # ── UI construction ────────────────────────────────────────────────────────
+    # -- UI construction --------------------------------------------------------
     def _build_ui(self):
         # Header
         hdr = tk.Frame(self, bg=ACCENT, height=80)
@@ -385,7 +385,7 @@ class InstallerApp(tk.Tk):
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", pady=(10, 0))
 
-        # ── Bottom bar — packed BEFORE the log so side="bottom" is respected ──
+        # -- Bottom bar — packed BEFORE the log so side="bottom" is respected --
         bot = tk.Frame(self, bg=PANEL, height=60)
         bot.pack(side="bottom", fill="x")
         bot.pack_propagate(False)
@@ -423,7 +423,7 @@ class InstallerApp(tk.Tk):
             self._log.tag_configure(tag, foreground=colour)
 
 
-    # ── Log helper ─────────────────────────────────────────────────────────────
+    # -- Log helper -------------------------------------------------------------
     def _log_write(self, msg: str, colour=TEXT):
         _map = {GREEN:"green", RED:"red", YELLOW:"yellow",
                 SUBTEXT:"sub", ACCENT2:"accent", TEXT:"text"}
@@ -433,7 +433,7 @@ class InstallerApp(tk.Tk):
         self._log.configure(state="disabled")
         self._log.see("end")
 
-    # ── Queue poll ─────────────────────────────────────────────────────────────
+    # -- Queue poll -------------------------------------------------------------
     def _poll_queue(self):
         """
         Drain all pending queue messages and reschedule itself.
@@ -487,7 +487,7 @@ class InstallerApp(tk.Tk):
         if not done_received:
             self.after(80, self._poll_queue)
 
-    # ── Start install ──────────────────────────────────────────────────────────
+    # -- Start install ----------------------------------------------------------
     def _start_install(self):
         self._main_btn.config(state="disabled", bg=BORDER)
         self._status_lbl.config(text="Installing… please wait.", fg=YELLOW)
@@ -499,7 +499,7 @@ class InstallerApp(tk.Tk):
         worker = InstallerWorker(self.install_dir, self._queue)
         threading.Thread(target=worker.run_all, daemon=True).start()
 
-    # ── Done callback ──────────────────────────────────────────────────────────
+    # -- Done callback ----------------------------------------------------------
     def _on_done(self, success: bool, message: str):
         self._sub_bar.stop()
         self._sub_bar.config(mode="determinate", maximum=100)
@@ -537,7 +537,7 @@ class InstallerApp(tk.Tk):
                 text="  Retry  ", state="normal",
                 bg=YELLOW, fg="#0f0f1a", command=self._retry)
 
-    # ── Launch / Retry ─────────────────────────────────────────────────────────
+    # -- Launch / Retry ---------------------------------------------------------
     def _launch(self):
         self._should_run_server = True
         self.destroy()
@@ -556,7 +556,7 @@ class InstallerApp(tk.Tk):
         self._poll_queue()
 
 
-# ── Entry point ────────────────────────────────────────────────────────────────
+# -- Entry point ----------------------------------------------------------------
 
 if __name__ == "__main__":
     app = InstallerApp()

@@ -162,7 +162,7 @@ async function startAutomation(apiKeys: string[]) {
         systemInstruction: [
           "You are a Sparx Maths agent. There are TWO types of screen you will encounter:",
 
-          "── TYPE 1: BOOKWORK CHECK ──",
+          "-- TYPE 1: BOOKWORK CHECK --",
           "Detected when the page shows a bookwork code (e.g. '4B' or 'Bookwork check') asking 'Which of these answers did you write down for bookwork code 4B?'.",
           "How to handle:",
           "1) Call get_screenshot_and_html to view the screen.",
@@ -174,21 +174,21 @@ async function startAutomation(apiKeys: string[]) {
           "7) Call task_done.",
           "IMPORTANT: Do NOT call calculate_answer on bookwork check screens. Always look up and select the stored bookwork answer.",
 
-          "── TYPE 2: NORMAL QUESTION ──",
+          "-- TYPE 2: NORMAL QUESTION --",
           "Detected when the page shows a new maths question to solve.",
           "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working AND a random human-like delay range (min_human_delay_seconds, max_human_delay_seconds). YOU MUST WAIT FOR THE SERVER TO FINISH THE DELAY. DO NOT call any other tool (like playwright_fill or playwright_click) until the calculate_answer tool response returns successfully after the wait. 3) AFTER the calculate_answer wait, fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
-          "── FILLING SLOTS (playwright_fill rules) ──",
+          "-- FILLING SLOTS (playwright_fill rules) --",
           "The server auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",
           "If isTextInput:true appears in interactiveElements, it is a plain text box — just call playwright_fill with the value.",
           "Use data-ai-id selectors (e.g. [data-ai-id=\"15\"]). WARNING: IDs regenerate on every get_screenshot_and_html call.",
 
-          "── DROPDOWNS ──",
+          "-- DROPDOWNS --",
           "When playwright_click returns interactiveElements in its response, those IDs are FRESH and valid right now (the dropdown is open).",
           "DO NOT call get_screenshot_and_html after opening a dropdown — that will close it and reset all IDs, causing an infinite loop.",
           "Instead: read the interactiveElements list returned by playwright_click, find the dropdown option you want, and call playwright_click with its data-ai-id immediately.",
 
-          "── task_done requirements ──",
+          "-- task_done requirements --",
           "Always provide bookwork_code and answer when finishing a normal question, so the answer is saved for future bookwork checks.",
           "FORMATTING: Format mathematical expressions in answer using KaTeX / LaTeX syntax, e.g. '$x = 2$', '$\\frac{1}{2}$', '$y = 3x + 5$', '$15.4$'. Wrap math in single dollar signs ($...$) so it renders nicely in KaTeX."
         ].join('\n')
@@ -326,7 +326,7 @@ async function startAutomation(apiKeys: string[]) {
             if (await el.count() === 0) {
               toolResult = { error: `Selector ${toolCall.args.selector} not found.` };
             } else {
-              // ── Step 1: check if the TARGET element itself is a plain input/textarea ──
+              // -- Step 1: check if the TARGET element itself is a plain input/textarea --
               const tagName    = await el.evaluate((n: Element) => n.tagName.toLowerCase());
               const inputType  = await el.evaluate((n: Element) => (n as HTMLInputElement).type?.toLowerCase() || '');
               const isEditableEl = await el.evaluate((n: Element) =>
@@ -351,11 +351,11 @@ async function startAutomation(apiKeys: string[]) {
                 await page.waitForTimeout(400);
                 toolResult = { status: `Typed "${val}" directly into editable element.` };
               } else {
-                // ── Step 2: Click the slot to open keypad/tile drawer ──
+                // -- Step 2: Click the slot to open keypad/tile drawer --
                 await el.click({ force: true });
                 await page.waitForTimeout(700);
 
-                // ── Step 3: Check if clicking focused a text input or contenteditable ──
+                // -- Step 3: Check if clicking focused a text input or contenteditable --
                 const focusedIsTypeable = await page.evaluate(() => {
                   const f = document.activeElement as HTMLElement | null;
                   if (!f) return false;
@@ -376,7 +376,7 @@ async function startAutomation(apiKeys: string[]) {
                   await page.waitForTimeout(300);
                   toolResult = { status: `Typed "${val}" into focused editable after clicking slot.` };
                 } else {
-                  // ── Step 4: Scan for tile/keypad buttons ──
+                  // -- Step 4: Scan for tile/keypad buttons --
                   const tiles = await page.evaluate(() => {
                     const results: { selector: string; text: string }[] = [];
                     const seen = new Set<Element>();
@@ -412,13 +412,13 @@ async function startAutomation(apiKeys: string[]) {
                   const exact   = tiles.find(t => normalise(t.text) === normVal);
 
                   if (exact) {
-                    // ── Step 5a: Click matching tile ──
+                    // -- Step 5a: Click matching tile --
                     console.log(`[Agent] ✅ Clicking tile "${exact.text}" for "${val}"`);
                     await page.locator(exact.selector).first().click({ force: true });
                     await page.waitForTimeout(400);
                     toolResult = { status: `Filled "${val}" by clicking tile.` };
                   } else {
-                    // ── Step 5b: Try char-by-char button pressing ──
+                    // -- Step 5b: Try char-by-char button pressing --
                     console.log(`[Agent] No exact tile for "${val}". Trying char-by-char...`);
                     let allOk = true;
                     for (const char of val.split('')) {
@@ -434,7 +434,7 @@ async function startAutomation(apiKeys: string[]) {
                     }
 
                     if (!allOk) {
-                      // ── Step 5c: ID-based click fallback — re-scan with data-ai-id ──
+                      // -- Step 5c: ID-based click fallback — re-scan with data-ai-id --
                       // Before touching the keyboard, try to find a tile that contains the
                       // full value (or a normalised form of it) by clicking its data-ai-id.
                       console.log(`[Agent] 🔎 Char-by-char incomplete — trying ID-based tile click for "${val}"`);
@@ -486,7 +486,7 @@ async function startAutomation(apiKeys: string[]) {
                         await page.waitForTimeout(400);
                         toolResult = { status: `Filled "${val}" by ID-based tile click (id=${idMatch.id}).` };
                       } else {
-                        // ── Step 5d: Absolute last resort — keyboard.type() ──
+                        // -- Step 5d: Absolute last resort — keyboard.type() --
                         console.log(`[Agent] 🎹 ID-click failed — falling back to keyboard.type("${val}")`);
                         await page.keyboard.press('Control+a');
                         await page.keyboard.press('Delete');
