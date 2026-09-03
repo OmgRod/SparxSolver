@@ -1,9 +1,23 @@
-import { chromium } from 'playwright';
+// Override process.versions.node check for Playwright in pkg environment
+try {
+  delete (process.versions as any).node;
+  (process.versions as any).node = '20.0.0';
+} catch (e) {
+  try {
+    Object.defineProperty(process.versions, 'node', { value: '20.0.0', configurable: true, writable: true });
+  } catch (err) {}
+}
+
 import path from 'path';
 import { setContext } from './server.ts';
 
 (async () => {
-  const extensionPath = path.resolve('./extension/dist');
+  const { chromium } = require('playwright');
+  let extensionPath = path.resolve(__dirname, '../extension/dist');
+  const fs = await import('fs');
+  if (!fs.existsSync(extensionPath)) {
+    extensionPath = path.resolve(process.cwd(), 'extension/dist');
+  }
 
   const context = await chromium.launchPersistentContext('./browser-data', {
     headless: false,
@@ -18,13 +32,26 @@ import { setContext } from './server.ts';
   setContext(context);
   const page = await context.newPage();
 
+  console.log('[SparxSolver] Application started! Server running at http://localhost:3000');
+  console.log('[SparxSolver] Keep this terminal window open. Closing it will exit the application.');
+
+  // Handle browser closure -> exit application
+  context.on('close', () => {
+    console.log('[SparxSolver] Browser window closed. Shutting down application...');
+    process.exit(0);
+  });
+
   // Wait a short time to ensure the server is fully ready
   await new Promise(r => setTimeout(r, 1000));
 
   await page.goto('http://localhost:3000');
 
-  process.on('SIGINT', async () => {
-    await context.close();
-    process.exit();
-  });
+  const cleanup = async () => {
+    console.log('[SparxSolver] Shutting down...');
+    try { await context.close(); } catch (e) {}
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 })();

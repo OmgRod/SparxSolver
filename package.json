@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "build:extension": "npm run build --prefix extension",
+    "build:server": "esbuild src/index.ts --bundle --platform=node --target=node18 --outfile=dist_server/index.js --packages=external",
+    "build:bridge": "esbuild src/browserBridge.ts --bundle --platform=browser --target=es2020 --outfile=mobile_app/assets/sparx_engine_bridge.js",
+    "build:all": "npm run build:server && npm run build:bridge"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +17,10 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.0",
-    "tsx": "^4.23.0"
+    "@vercel/ncc": "^0.45.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",

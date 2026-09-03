@@ -7,7 +7,21 @@ import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.resolve('./server')));
+const serverDir = path.resolve(process.cwd(), 'server');
+const fallbackServerDir = path.resolve(__dirname, '../server');
+app.use(express.static(serverDir));
+if (serverDir !== fallbackServerDir) {
+  app.use(express.static(fallbackServerDir));
+}
+
+app.get('/', (req, res) => {
+  const indexFile = path.join(serverDir, 'index.html');
+  if (require('fs').existsSync(indexFile)) {
+    res.sendFile(indexFile);
+  } else {
+    res.sendFile(path.join(fallbackServerDir, 'index.html'));
+  }
+});
 
 let browserContext: BrowserContext | null = null;
 let automationRunning = false;
@@ -49,91 +63,24 @@ app.get('/stop', (req, res) => {
   res.send('Stopped');
 });
 
-// Tool Definitions for Gemini
-const playwright_click: FunctionDeclaration = {
-  name: 'playwright_click',
-  description: 'Click an element on the page using a CSS selector.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      selector: { type: Type.STRING, description: 'The CSS selector of the element to click.' }
-    },
-    required: ['selector']
-  }
-};
+import { toolDeclarations, systemInstruction, fallbackModels } from './engineCore';
 
-const playwright_fill: FunctionDeclaration = {
-  name: 'playwright_fill',
-  description: 'Fill an answer slot with a value. The server will automatically click the slot, then find and click the correct tile or keypad button. Use this for ALL answer slots — numbers, fractions, operators like +, -, etc.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      selector: { type: Type.STRING, description: 'The CSS selector of the answer slot (e.g. [data-ai-id="15"]).' },
-      value: { type: Type.STRING, description: 'The value to enter, e.g. "5", "-22", "+", "-", "1/5".' }
-    },
-    required: ['selector', 'value']
-  }
-};
+const playwright_click = toolDeclarations.find(t => t.name === 'playwright_click') as any;
+const playwright_fill = toolDeclarations.find(t => t.name === 'playwright_fill') as any;
+const get_screenshot_and_html = toolDeclarations.find(t => t.name === 'get_screenshot_and_html') as any;
+const task_done = toolDeclarations.find(t => t.name === 'task_done') as any;
+const calculate_answer = toolDeclarations.find(t => t.name === 'calculate_answer') as any;
+const get_bookwork_answer = toolDeclarations.find(t => t.name === 'get_bookwork_answer') as any;
 
 const playwright_evaluate: FunctionDeclaration = {
   name: 'playwright_evaluate',
-  description: 'Evaluate JavaScript in the page context and return the result as a string. E.g. document.querySelector("button").innerText',
+  description: 'Evaluate JavaScript in the page context and return the result as a string.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       script: { type: Type.STRING, description: 'The JavaScript string to evaluate.' }
     },
     required: ['script']
-  }
-};
-
-const get_screenshot_and_html: FunctionDeclaration = {
-  name: 'get_screenshot_and_html',
-  description: 'Takes a screenshot and gets the HTML of the current page or a specific container. ALWAYS call this first to see the screen and choose selectors.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      selector: { type: Type.STRING, description: 'Optional CSS selector to scope the HTML (e.g. "div[class*=\"_AnswerScreen\"]"). Leave empty for full body.' }
-    }
-  }
-};
-
-const task_done: FunctionDeclaration = {
-  name: 'task_done',
-  description: 'Call this when you have successfully solved the current screen. If the question has multiple parts and you need to remember the answer for the next screen, provide it in memory_for_next_part. If the entire question is completely finished and you are moving to a new question, leave memory_for_next_part empty.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      message: { type: Type.STRING, description: 'A final summary of what was done.' },
-      memory_for_next_part: { type: Type.STRING, description: 'Important facts or answers to remember for the next part of THIS question. Leave empty if the entire question is fully finished.' },
-      bookwork_code: { type: Type.STRING, description: 'The bookwork code (e.g. "34") shown on the page.' },
-      answer: { type: Type.STRING, description: 'The final answer you entered for this question (formatted with KaTeX/LaTeX math delimiters like $x = 2$ or $\\frac{1}{2}$). Required if this is the final part of the question.' }
-    }
-  }
-};
-
-const calculate_answer: FunctionDeclaration = {
-  name: 'calculate_answer',
-  description: 'Use this tool to write out your step-by-step mathematical working and determine the final answer BEFORE you start clicking any answer slots on the screen.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      step_by_step_working: { type: Type.STRING, description: 'Your detailed mathematical working out. Double check your math!' },
-      final_answer: { type: Type.STRING, description: 'The final calculated answer.' }
-    },
-    required: ["step_by_step_working", "final_answer"]
-  }
-};
-
-const get_bookwork_answer: FunctionDeclaration = {
-  name: 'get_bookwork_answer',
-  description: 'Look up a previously saved answer for a given bookwork code. Call this FIRST on bookwork check screens before looking at tiles — it returns the exact answer string that was saved when this question was originally answered.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      bookwork_code: { type: Type.STRING, description: 'The bookwork code shown on the page, e.g. "4B" or "12".' }
-    },
-    required: ['bookwork_code']
   }
 };
 
@@ -144,16 +91,6 @@ async function getActivePage(): Promise<Page | null> {
   return activePage || (pages.length > 0 ? pages[0] : null);
 }
 
-const fallbackModels = [
-  // --- Gemini 3.x Family (Frontier & Agentic Workflows) ---
-  'gemini-3.5-flash',         // Stable - The current default flagship for speed, coding, and loops
-  'gemini-3.1-flash-lite',
-  'gemini-3.1-pro-preview',
-  'gemini-3-flash-preview',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-pro'
-];
 let currentModelIndex = 0;
 let bookworks: { code: string, answer: string }[] = [];
 let deletedBookworks: Set<string> = new Set();
@@ -272,31 +209,16 @@ async function startAutomation(apiKeys: string[]) {
             success = true;
             genericErrorAttempts = 0;
           } catch (e: any) {
-            const errStr = String(e.message || e).toLowerCase();
-            if (e.status === 429 || errStr.includes('429') || errStr.includes('quota') || errStr.includes('exhausted')) {
-               currentKeyIndex++;
-               if (currentKeyIndex >= apiKeys.length) {
-                   currentKeyIndex = 0;
-                   currentModelIndex = (currentModelIndex + 1) % fallbackModels.length;
-                   console.log(`[Agent] ⚠️ Rate limits exhausted on all keys for ${fallbackModels[currentModelIndex === 0 ? fallbackModels.length - 1 : currentModelIndex - 1]}. Switching to next model...`);
-               } else {
-                   console.log(`[Agent] ⚠️ Rate limit hit. Switching to backup API key ${currentKeyIndex + 1}/${apiKeys.length}...`);
-               }
-               
-               // Re-initialize AI with new key
-               ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
-               genericErrorAttempts = 0;
+            currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+            if (currentKeyIndex === 0) {
+              currentModelIndex = (currentModelIndex + 1) % fallbackModels.length;
+              console.log(`[Agent] ⚠️ Cycled through all API keys for model ${fallbackModels[currentModelIndex === 0 ? fallbackModels.length - 1 : currentModelIndex - 1]}. Switching model to ${fallbackModels[currentModelIndex]}...`);
             } else {
-               genericErrorAttempts++;
-               console.log(`[Agent] ⚠️ Error on ${fallbackModels[currentModelIndex]} (${genericErrorAttempts}/10): ${e.message}`);
-               if (genericErrorAttempts >= 10) {
-                   console.log(`[Agent] ⚠️ 10 consecutive errors reached. Switching to next model...`);
-                   currentModelIndex = (currentModelIndex + 1) % fallbackModels.length;
-                   currentKeyIndex = 0;
-                   ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
-                   genericErrorAttempts = 0;
-               }
+              console.log(`[Agent] ⚠️ Error on ${fallbackModels[currentModelIndex]} (${e.message || e}). Instantly switching to next API key ${currentKeyIndex + 1}/${apiKeys.length}...`);
             }
+            
+            // Re-initialize AI with next key immediately
+            ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
           }
         }
 
@@ -319,6 +241,11 @@ async function startAutomation(apiKeys: string[]) {
         const toolCall = functionCalls[0];
         console.log(`[Agent] 🤖 Gemini called tool: ${toolCall.name} with args:`, toolCall.args);
         
+        if (!automationRunning) {
+          console.log('[Automation] Stop flag detected before executing tool. Halting immediately.');
+          break;
+        }
+
         let toolResult: any;
         const page = await getActivePage();
         if (!page) throw new Error("Browser page lost.");
