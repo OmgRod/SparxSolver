@@ -1,18 +1,23 @@
-# sparx solver because sparx sucks!
+# Sparx Solver
 
-## setup guide
+An automated open-source homework assistant for Sparx Maths and Sparx Science powered by Google Gemini.
 
-You need to install Node.js (version 20-ish best but overall go for a more modern version): https://nodejs.org/en/download
+## Setup Guide
 
-Then, download the repository by scrolling up, clicking "Code" -> "Download as zip"
+### Prerequisites
 
-Then, unzip it.
+Before setting up Sparx Solver, ensure you have **Node.js** installed on your system (newer/latest version recommended):
 
-Then go into the folder and open a command prompt in it.
+- [Download Node.js](https://nodejs.org/en/download)
 
-Inside, run the following commands in the exact order:
+### Installation & Execution
 
-```
+1. **Download the Repository:** Scroll to the top of this page, click the green **Code** button, and select **Download ZIP**.
+2. **Extract Files:** Unzip the downloaded folder to a convenient location (e.g., your Desktop).
+3. **Open Terminal / Command Prompt:** Navigate inside the unzipped project folder and open a command line interface in that directory.
+4. **Install Dependencies & Build:** Run the following commands in exact order:
+
+```bash
 npm i
 cd extension
 npm i
@@ -21,17 +26,25 @@ cd ..
 npm start
 ```
 
-If there is an issue, run the following command:
+### Troubleshooting
 
-```
+If you encounter launcher issues or missing browser dependencies, install Playwright manually:
+
+```bash
 npm i -g playwright
 npx playwright install chromium
 ```
 
-Then run:
+Once installed, restart the application:
 
-```
+```bash
 npm start
 ```
 
-## THEN FOLLOW THE INSTRUCTIONS ON SCREEN!!!
+## How to Use
+
+Follow the on-screen instructions displayed in your browser window once the application starts up.
+
+> [!NOTE]
+> **Disclaimer:**
+> Sparx Liberation Front is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Sparx Learning.
