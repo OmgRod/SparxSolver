@@ -107,7 +107,7 @@ class InstallerWorker:
         e["npm_config_cache"] = os.path.join(node_root, ".npm-cache")
         return e
 
-    # -- STEP 1 — Extract bundled repo codebase ---------------------------------
+    # -- STEP 1 - Extract bundled repo codebase ---------------------------------
     def clone_repo(self, git_root):
         self.log("Extracting SparxSolver codebase…", TEXT)
         self.set_sub(0, 0, "Unpacking codebase…")
@@ -131,7 +131,7 @@ class InstallerWorker:
         self.set_sub(100, 100, "Unpack complete ✓")
         self.log("  ✓ Repository & codebase ready (offline bundle).", GREEN)
 
-    # -- STEP 3 — Ensure Node.js ------------------------------------------------
+    # -- STEP 3 - Ensure Node.js ------------------------------------------------
     def ensure_node(self):
         self.log("Checking for Node.js…", TEXT)
 
@@ -170,7 +170,7 @@ class InstallerWorker:
 
         raise RuntimeError("Bundled Node.js binary not found in installer package.")
 
-    # -- STEP 4 — Clean + npm install + build + Playwright Chromium install ----
+    # -- STEP 4 - Clean + npm install + build + Playwright Chromium install ----
     def _clean_app(self):
         """Delete generated build cache artefacts."""
         self.log("Cleaning previous build artefacts…", TEXT)
@@ -232,7 +232,7 @@ class InstallerWorker:
         self.set_sub(100, 100, "Playwright Chromium installed ✓")
         self.log("  ✓ Playwright Chromium browser installed.", GREEN)
 
-    # -- STEP 5 — Create launcher scripts --------------------------------------
+    # -- STEP 5 - Create launcher scripts --------------------------------------
     def create_launchers(self, node_root):
         self.log("Creating launcher scripts…", TEXT)
         app_abs = os.path.abspath(self.app_dir)
@@ -289,14 +289,14 @@ class InstallerWorker:
             os.makedirs(self.install_dir, exist_ok=True)
             os.makedirs(self.bin_dir,     exist_ok=True)
 
-            self.set_step("Step 1 / 3 — Unpacking codebase & Node.js", 1, TOTAL)
+            self.set_step("Step 1 / 3 - Unpacking codebase & Node.js", 1, TOTAL)
             self.clone_repo(None)
             node_root = self.ensure_node()
 
-            self.set_step("Step 2 / 3 — Installing & building",      2, TOTAL)
+            self.set_step("Step 2 / 3 - Installing & building",      2, TOTAL)
             self.npm_install_and_build(node_root)
 
-            self.set_step("Step 3 / 3 — Creating launcher scripts",  3, TOTAL)
+            self.set_step("Step 3 / 3 - Creating launcher scripts",  3, TOTAL)
             self.create_launchers(node_root)
 
             self.done(True)
@@ -385,7 +385,7 @@ class InstallerApp(tk.Tk):
 
         tk.Frame(self, bg=BORDER, height=1).pack(fill="x", pady=(10, 0))
 
-        # -- Bottom bar — packed BEFORE the log so side="bottom" is respected --
+        # -- Bottom bar - packed BEFORE the log so side="bottom" is respected --
         bot = tk.Frame(self, bg=PANEL, height=60)
         bot.pack(side="bottom", fill="x")
         bot.pack_propagate(False)
@@ -405,7 +405,7 @@ class InstallerApp(tk.Tk):
             padx=16, pady=8, command=self._start_install)
         self._main_btn.pack(side="right", padx=4, pady=10)
 
-        # Log area — packed last so expand=True fills remaining space
+        # Log area - packed last so expand=True fills remaining space
         lf = tk.Frame(self, bg=BG)
         lf.pack(fill="both", expand=True, padx=14, pady=(8, 0))
         self._log = tk.Text(lf, bg="#0a0a14", fg=TEXT, relief="flat",
@@ -492,7 +492,7 @@ class InstallerApp(tk.Tk):
         self._main_btn.config(state="disabled", bg=BORDER)
         self._status_lbl.config(text="Installing… please wait.", fg=YELLOW)
         self._log_write("━" * 60)
-        self._log_write("  SparxSolver Installer — starting…")
+        self._log_write("  SparxSolver Installer - starting…")
         self._log_write(f"  Install directory: {self.install_dir}", ACCENT2)
         self._log_write("━" * 60)
 
@@ -508,7 +508,7 @@ class InstallerApp(tk.Tk):
             self._sub_bar.config(value=100)
             self._step_bar.config(value=5)
             self._step_lbl.config(text="✅  Installation complete!")
-            self._sub_lbl.config(text="All done — SparxSolver is ready to run.")
+            self._sub_lbl.config(text="All done - SparxSolver is ready to run.")
             self._status_lbl.config(text="Installation complete!", fg=GREEN)
             self._log_write("")
             self._log_write("━" * 60, GREEN)

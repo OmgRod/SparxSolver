@@ -2,6 +2,9 @@
 
 An automated open-source homework assistant for Sparx Maths and Sparx Science powered by Google Gemini.
 
+> [!IMPORTANT]
+> **Disclaimer:** Sparx Liberation Front is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Sparx Learning.
+
 ## Setup Guide
 
 ### Prerequisites
@@ -44,7 +47,3 @@ npm start
 ## How to Use
 
 Follow the on-screen instructions displayed in your browser window once the application starts up.
-
-> [!NOTE]
-> **Disclaimer:**
-> Sparx Liberation Front is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Sparx Learning.

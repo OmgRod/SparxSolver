@@ -179,13 +179,13 @@ async function startAutomation(apiKeys: string[]) {
           "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working AND a random human-like delay range (min_human_delay_seconds, max_human_delay_seconds). YOU MUST WAIT FOR THE SERVER TO FINISH THE DELAY. DO NOT call any other tool (like playwright_fill or playwright_click) until the calculate_answer tool response returns successfully after the wait. 3) AFTER the calculate_answer wait, fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
           "-- FILLING SLOTS (playwright_fill rules) --",
-          "The server auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",
-          "If isTextInput:true appears in interactiveElements, it is a plain text box — just call playwright_fill with the value.",
+          "The server auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept - fill each independently.",
+          "If isTextInput:true appears in interactiveElements, it is a plain text box - just call playwright_fill with the value.",
           "Use data-ai-id selectors (e.g. [data-ai-id=\"15\"]). WARNING: IDs regenerate on every get_screenshot_and_html call.",
 
           "-- DROPDOWNS --",
           "When playwright_click returns interactiveElements in its response, those IDs are FRESH and valid right now (the dropdown is open).",
-          "DO NOT call get_screenshot_and_html after opening a dropdown — that will close it and reset all IDs, causing an infinite loop.",
+          "DO NOT call get_screenshot_and_html after opening a dropdown - that will close it and reset all IDs, causing an infinite loop.",
           "Instead: read the interactiveElements list returned by playwright_click, find the dropdown option you want, and call playwright_click with its data-ai-id immediately.",
 
           "-- task_done requirements --",
@@ -303,7 +303,7 @@ async function startAutomation(apiKeys: string[]) {
 
               toolResult = {
                 status: 'Clicked successfully.',
-                note: 'Some new elements appeared and have been assigned __new_ IDs (listed below). IMPORTANT: __new_ IDs are ONLY valid for playwright_click (e.g. to select a dropdown option). NEVER pass a __new_ ID to playwright_fill — that will hit a button instead of the answer slot and corrupt the input. For playwright_fill, always use the numeric IDs from the last get_screenshot_and_html call.',
+                note: 'Some new elements appeared and have been assigned __new_ IDs (listed below). IMPORTANT: __new_ IDs are ONLY valid for playwright_click (e.g. to select a dropdown option). NEVER pass a __new_ ID to playwright_fill - that will hit a button instead of the answer slot and corrupt the input. For playwright_fill, always use the numeric IDs from the last get_screenshot_and_html call.',
                 interactiveElements: freshElements
               };
             } else {
@@ -336,14 +336,14 @@ async function startAutomation(apiKeys: string[]) {
               );
 
               if (isEditableEl) {
-                console.log(`[Agent] 🎹 Target is directly editable — typing "${val}" via keystrokes.`);
-                // Blur whatever currently has focus FIRST — prevents the leading character
+                console.log(`[Agent] 🎹 Target is directly editable - typing "${val}" via keystrokes.`);
+                // Blur whatever currently has focus FIRST - prevents the leading character
                 // of the new value leaking into the previous field before focus moves.
                 await page.evaluate(() => (document.activeElement as HTMLElement)?.blur?.());
                 await page.waitForTimeout(150);
                 await el.click();
                 // Wait long enough for the browser to fire blur on the old element and
-                // focus on the new one — 400ms is safe across all tested browsers.
+                // focus on the new one - 400ms is safe across all tested browsers.
                 await page.waitForTimeout(400);
                 await page.keyboard.press('Control+a');
                 await page.keyboard.press('Delete');
@@ -369,7 +369,7 @@ async function startAutomation(apiKeys: string[]) {
                 });
 
                 if (focusedIsTypeable) {
-                  console.log(`[Agent] 🎹 Slot opened a typeable element — typing "${val}" via keyboard.`);
+                  console.log(`[Agent] 🎹 Slot opened a typeable element - typing "${val}" via keyboard.`);
                   await page.keyboard.press('Control+a');
                   await page.keyboard.press('Delete');
                   await page.keyboard.type(val, { delay: 70 });
@@ -434,10 +434,10 @@ async function startAutomation(apiKeys: string[]) {
                     }
 
                     if (!allOk) {
-                      // -- Step 5c: ID-based click fallback — re-scan with data-ai-id --
+                      // -- Step 5c: ID-based click fallback - re-scan with data-ai-id --
                       // Before touching the keyboard, try to find a tile that contains the
                       // full value (or a normalised form of it) by clicking its data-ai-id.
-                      console.log(`[Agent] 🔎 Char-by-char incomplete — trying ID-based tile click for "${val}"`);
+                      console.log(`[Agent] 🔎 Char-by-char incomplete - trying ID-based tile click for "${val}"`);
 
                       const idTiles = await page.evaluate(() => {
                         const results: { selector: string; text: string; id: string }[] = [];
@@ -463,7 +463,7 @@ async function startAutomation(apiKeys: string[]) {
                         return results;
                       });
 
-                      // Build a richer normalised set — strip LaTeX wrappers for comparison
+                      // Build a richer normalised set - strip LaTeX wrappers for comparison
                       const stripLatex = (s: string) => s
                         .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2')
                         .replace(/\\sqrt\{([^}]+)\}/g, 'sqrt($1)')
@@ -486,8 +486,8 @@ async function startAutomation(apiKeys: string[]) {
                         await page.waitForTimeout(400);
                         toolResult = { status: `Filled "${val}" by ID-based tile click (id=${idMatch.id}).` };
                       } else {
-                        // -- Step 5d: Absolute last resort — keyboard.type() --
-                        console.log(`[Agent] 🎹 ID-click failed — falling back to keyboard.type("${val}")`);
+                        // -- Step 5d: Absolute last resort - keyboard.type() --
+                        console.log(`[Agent] 🎹 ID-click failed - falling back to keyboard.type("${val}")`);
                         await page.keyboard.press('Control+a');
                         await page.keyboard.press('Delete');
                         await page.keyboard.type(val, { delay: 70 });
@@ -527,7 +527,7 @@ async function startAutomation(apiKeys: string[]) {
               }
               updateStatus(`Finished thinking (${delaySec}s). Executing answer entry...`, 'action');
             } else {
-              console.log(`[Human Delay] Delay already applied for this question — skipping additional wait.`);
+              console.log(`[Human Delay] Delay already applied for this question - skipping additional wait.`);
             }
 
             toolResult = { status: "Calculation saved successfully! Now proceed to enter this exact answer using the correct button IDs." };
@@ -539,7 +539,7 @@ async function startAutomation(apiKeys: string[]) {
               console.log(`[Agent] 📖 Bookwork lookup: code="${code}" → answer="${entry.answer}"`);
               toolResult = { found: true, bookwork_code: entry.code, answer: entry.answer };
             } else {
-              console.log(`[Agent] 📖 Bookwork lookup: code="${code}" — NOT FOUND in store (${bookworks.length} entries).`);
+              console.log(`[Agent] 📖 Bookwork lookup: code="${code}" - NOT FOUND in store (${bookworks.length} entries).`);
               // Return the full bookwork store so the agent can make an educated guess
               toolResult = {
                 found: false,

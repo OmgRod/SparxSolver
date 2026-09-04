@@ -20,7 +20,7 @@ export const toolDeclarations = [
   },
   {
     name: 'playwright_fill',
-    description: 'Fill an answer slot with a value. The engine will automatically click the slot, then find and click the correct tile or keypad button. Use this for ALL answer slots — numbers, fractions, operators like +, -, etc.',
+    description: 'Fill an answer slot with a value. The engine will automatically click the slot, then find and click the correct tile or keypad button. Use this for ALL answer slots - numbers, fractions, operators like +, -, etc.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -100,9 +100,9 @@ export const systemInstruction = [
   "How to handle: 1) Call get_screenshot_and_html. 2) Call calculate_answer with full working AND realistic min/max estimated human solving time in seconds (e.g. min: 12, max: 25). 3) Fill every answer slot with playwright_fill EXACTLY ONCE per slot. 4) Call task_done with bookwork_code AND answer.",
 
   "-- FILLING SLOTS (playwright_fill rules) --",
-  "The engine auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept — fill each independently.",
-  "If isTextInput:true appears in interactiveElements, it is a plain text box — call playwright_fill with the value.",
-  "CRITICAL: Call playwright_fill EXACTLY ONCE per answer slot! DO NOT call playwright_fill again on a slot that has already been filled — doing so appends duplicate digits onto the existing answer.",
+  "The engine auto-handles clicking tiles or typing. For equations like y=mx+c, there are SEPARATE slots for gradient, sign (+/-), and intercept - fill each independently.",
+  "If isTextInput:true appears in interactiveElements, it is a plain text box - call playwright_fill with the value.",
+  "CRITICAL: Call playwright_fill EXACTLY ONCE per answer slot! DO NOT call playwright_fill again on a slot that has already been filled - doing so appends duplicate digits onto the existing answer.",
   "CRITICAL: Calling playwright_fill WILL interact with keypad/tiles automatically if the slot opens a virtual keypad. NEVER assume a question is done without filling all required slots!",
   "Use data-ai-id selectors (e.g. [data-ai-id=\"15\"]). WARNING: IDs regenerate on every get_screenshot_and_html call.",
 
